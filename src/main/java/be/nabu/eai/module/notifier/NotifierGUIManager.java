@@ -16,7 +16,9 @@ import javafx.scene.control.Separator;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
+import be.nabu.eai.developer.ComplexContentEditor;
 import be.nabu.eai.developer.MainController;
+import be.nabu.eai.developer.ComplexContentEditor.ValueWrapper;
 import be.nabu.eai.developer.MainController.PropertyUpdater;
 import be.nabu.eai.developer.managers.base.BaseConfigurationGUIManager;
 import be.nabu.eai.developer.managers.base.BaseJAXBGUIManager;
@@ -25,11 +27,15 @@ import be.nabu.eai.developer.managers.util.SimplePropertyUpdater;
 import be.nabu.eai.module.notifier.api.NotificationProvider;
 import be.nabu.eai.repository.EAIRepositoryUtils;
 import be.nabu.eai.repository.resources.RepositoryEntry;
+import be.nabu.jfx.control.tree.Tree;
 import be.nabu.libs.converter.ConverterFactory;
 import be.nabu.libs.property.api.Property;
 import be.nabu.libs.property.api.Value;
 import be.nabu.libs.services.api.DefinedService;
+import be.nabu.libs.types.api.ComplexContent;
+import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.api.Element;
+import be.nabu.libs.types.base.TypeBaseUtils;
 import be.nabu.libs.types.base.ValueImpl;
 import be.nabu.libs.validator.api.ValidationMessage;
 import be.nabu.libs.validator.api.ValidationMessage.Severity;
@@ -133,10 +139,11 @@ public class NotifierGUIManager extends BaseJAXBGUIManager<NotifierConfiguration
 					route.setProvider((DefinedService) value);
 					propertiesPane.getChildren().clear();
 					if (value != null) {
-						PropertyUpdater updaterFor = updaterFor((DefinedService) value, route.getProperties());
-						if (updaterFor != null) {
-							MainController.getInstance().showProperties(updaterFor, propertiesPane, true, artifact.getRepository(), true);
-						}
+//						PropertyUpdater updaterFor = updaterFor((DefinedService) value, route.getProperties());
+//						if (updaterFor != null) {
+//							MainController.getInstance().showProperties(updaterFor, propertiesPane, true, artifact.getRepository(), true);
+//						}
+						draw(artifact, route.getProvider(), route.getProperties(), propertiesPane);
 					}
 				}
 				else if (property.getName().equals("whitelist")) {
@@ -161,10 +168,11 @@ public class NotifierGUIManager extends BaseJAXBGUIManager<NotifierConfiguration
 		vbox.getChildren().add(propertiesPane);
 
 		if (route.getProvider() != null) {
-			PropertyUpdater updaterFor = updaterFor(route.getProvider(), route.getProperties());
-			if (updaterFor != null) {
-				MainController.getInstance().showProperties(updaterFor, propertiesPane, true, artifact.getRepository(), true);
-			}
+			draw(artifact, route.getProvider(), route.getProperties(), propertiesPane);
+//			PropertyUpdater updaterFor = updaterFor(route.getProvider(), route.getProperties());
+//			if (updaterFor != null) {
+//				MainController.getInstance().showProperties(updaterFor, propertiesPane, true, artifact.getRepository(), true);
+//			}
 		}
 		
 		Button delete = new Button("Remove Route");
@@ -177,6 +185,37 @@ public class NotifierGUIManager extends BaseJAXBGUIManager<NotifierConfiguration
 			}
 		});
 		vbox.getChildren().addAll(delete, new Separator(Orientation.HORIZONTAL));
+	}
+	
+	private void draw(NotifierArtifact artifact, DefinedService provider, Map<String, String> map, Pane pane) {
+		Method method = EAIRepositoryUtils.getMethod(NotificationProvider.class, "notify");
+		List<Element<?>> inputExtensions = EAIRepositoryUtils.getInputExtensions(provider, method);
+		
+		for (Element<?> element : inputExtensions) {
+			if (element.getType() instanceof ComplexType) {
+				ComplexContent content = ((ComplexType) element.getType()).newInstance();
+				for (String key : map.keySet()) {
+					try {
+						content.set(key, map.get(key));
+					}
+					catch (Exception e) {
+						// ignore
+					}
+				}
+				Tree<ValueWrapper> tree = new ComplexContentEditor(content, true, artifact.getRepository()) {
+					@Override
+					public void update() {
+						Map<String, String> stringMap = TypeBaseUtils.toStringMap(content);
+						map.clear();
+						map.putAll(stringMap);
+					}
+				}.getTree();
+				pane.getChildren().clear();
+				pane.getChildren().add(tree);
+				tree.prefWidthProperty().bind(pane.widthProperty());
+				break;
+			}
+		}
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
