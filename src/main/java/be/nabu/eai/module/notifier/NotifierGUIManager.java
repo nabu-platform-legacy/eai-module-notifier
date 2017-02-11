@@ -113,6 +113,7 @@ public class NotifierGUIManager extends BaseJAXBGUIManager<NotifierConfiguration
 		Set<Property<?>> properties = new LinkedHashSet<Property<?>>();
 		properties.add(provider);
 		
+		SimpleProperty<String> type = new SimpleProperty<String>("type", String.class, true);
 		SimpleProperty<String> whitelist = new SimpleProperty<String>("whitelist", String.class, true);
 		SimpleProperty<String> blacklist = new SimpleProperty<String>("blacklist", String.class, true);
 		SimpleProperty<Boolean> isContinue = new SimpleProperty<Boolean>("continue", Boolean.class, true);
@@ -127,6 +128,7 @@ public class NotifierGUIManager extends BaseJAXBGUIManager<NotifierConfiguration
 		
 		List<Value<?>> values = new ArrayList<Value<?>>();
 		values.add(new ValueImpl<DefinedService>(provider, route.getProvider()));
+		values.add(new ValueImpl<String>(type, route.getType()));
 		values.add(new ValueImpl<String>(whitelist, route.getWhitelist()));
 		values.add(new ValueImpl<String>(blacklist, route.getBlacklist()));
 		values.add(new ValueImpl<Boolean>(isContinue, route.isContinue()));
@@ -157,6 +159,9 @@ public class NotifierGUIManager extends BaseJAXBGUIManager<NotifierConfiguration
 				}
 				else if (property.getName().equals("severity")) {
 					route.setSeverity((Severity) value);
+				}
+				else if (property.getName().equals("type")) {
+					route.setType((String) value);
 				}
 				return super.updateProperty(property, value);
 			}
@@ -218,7 +223,7 @@ public class NotifierGUIManager extends BaseJAXBGUIManager<NotifierConfiguration
 		}
 	}
 
-	@SuppressWarnings({ "unchecked", "rawtypes" })
+	@SuppressWarnings({ "unchecked", "rawtypes", "unused" })
 	private PropertyUpdater updaterFor(DefinedService provider, Map<String, String> map) {
 		Method method = EAIRepositoryUtils.getMethod(NotificationProvider.class, "notify");
 		List<Element<?>> inputExtensions = EAIRepositoryUtils.getInputExtensions(provider, method);

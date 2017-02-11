@@ -33,6 +33,11 @@ public class NotifierRoute {
 	private String whitelist, blacklist;
 	
 	/**
+	 * The type of the notification, if none is given and there are properties, it should use the property type id
+	 */
+	private String type;
+	
+	/**
 	 * The properties to use for the provider
 	 * These can reference the incoming message
 	 * For example suppose it is an email provider, you could have a property "subject"
@@ -93,4 +98,13 @@ public class NotifierRoute {
 	public void setBlacklist(String blacklist) {
 		this.blacklist = blacklist;
 	}
+
+	public String getType() {
+		return type;
+	}
+
+	public void setType(String type) {
+		this.type = type;
+	}
+	
 }
