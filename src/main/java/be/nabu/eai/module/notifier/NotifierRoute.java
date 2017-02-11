@@ -46,7 +46,7 @@ public class NotifierRoute {
 	 */
 	private Map<String, String> properties;
 
-	@InterfaceFilter(implement = "be.nabu.eai.module.notifier.api.NotificationProvider.notify")
+	@InterfaceFilter(implement = "be.nabu.eai.repository.api.NotificationProvider.notify")
 	@XmlJavaTypeAdapter(value = ArtifactXMLAdapter.class)
 	public DefinedService getProvider() {
 		return provider;

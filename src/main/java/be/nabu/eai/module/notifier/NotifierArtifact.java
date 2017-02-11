@@ -33,7 +33,6 @@ import be.nabu.libs.types.api.DefinedType;
 import be.nabu.libs.types.api.Element;
 import be.nabu.libs.types.base.TypeBaseUtils;
 
-// TODO: need way to reorder routes... order is important here
 public class NotifierArtifact extends JAXBArtifact<NotifierConfiguration> implements StartableArtifact, StoppableArtifact {
 
 	private EventSubscription<Notification, Void> subscription;
@@ -62,129 +61,133 @@ public class NotifierArtifact extends JAXBArtifact<NotifierConfiguration> implem
 				@Override
 				public Void handle(Notification event) {
 					for (NotifierRoute route : getConfig().getRoutes()) {
-						ComplexContent content = null;
-						if (event.getProperties() != null) {
-							content = event.getProperties() instanceof ComplexContent ? (ComplexContent) event.getProperties() : ComplexContentWrapperFactory.getInstance().getWrapper().wrap(event.getProperties());
-						}
-						String type = content == null || !(content.getType() instanceof DefinedType) ? null : ((DefinedType) content.getType()).getId();
-						// check if we want a type match
-						if (route.getType() != null) {
-							if (type == null || !type.equals(route.getType())) {
-								continue;
-							}
-						}
-						if (route.getWhitelist() != null) {
-							// if we have a whitelist and no properties, continue
-							if (content == null) {
-								continue;
-							}
-							try {
-								TypeOperation query = getQuery(route.getWhitelist());
-								Object evaluate = query.evaluate(content);
-								if (evaluate == null) {
-									continue;
-								}
-								else if (!(evaluate instanceof Boolean)) {
-									evaluate = ConverterFactory.getInstance().getConverter().convert(evaluate, Boolean.class);
-									if (evaluate == null) {
-										throw new EvaluationException("The return value is not boolean");
-									}
-								}
-								// if we didn't pass the whitelist, don't execute
-								if (!(Boolean) evaluate) {
-									continue;
-								}
-							}
-							catch (ParseException e) {
-								logger.error("Could not parse whitelist for " + getId() + ": " + route.getWhitelist(), e);
-								continue;
-							}
-							catch (EvaluationException e) {
-								logger.error("Could not evaluate whitelist for " + getId() + ": " + route.getWhitelist(), e);
-								continue;
-							}
-						}
-						if (route.getBlacklist() != null) {
-							// if we have a blacklist and no properties, continue
-							if (content == null) {
-								continue;
-							}
-							try {
-								TypeOperation query = getQuery(route.getBlacklist());
-								Object evaluate = query.evaluate(content);
-								if (evaluate == null) {
-									continue;
-								}
-								else if (!(evaluate instanceof Boolean)) {
-									evaluate = ConverterFactory.getInstance().getConverter().convert(evaluate, Boolean.class);
-									if (evaluate == null) {
-										throw new EvaluationException("The return value is not boolean");
-									}
-								}
-								// if we passed the blacklist, don't execute
-								if ((Boolean) evaluate) {
-									continue;
-								}
-							}
-							catch (ParseException e) {
-								logger.error("Could not parse blacklist for " + getId() + ": " + route.getBlacklist(), e);
-								continue;
-							}
-							catch (EvaluationException e) {
-								logger.error("Could not evaluate blacklist for " + getId() + ": " + route.getBlacklist(), e);
-								continue;
-							}
-						}
-						// if we make it here, execute the service
-						DefinedService provider = route.getProvider();
-						ComplexContent input = provider.getServiceInterface().getInputDefinition().newInstance();
-						
-						input.set("context", event.getContext());
-						input.set("severity", event.getSeverity());
-						input.set("message", event.getMessage());
-						input.set("description", event.getDescription());
-						input.set("created", event.getCreated());
-						
-						// pass in the original properties, can be interesting for generic logging
-						if (content != null) {
-							input.set("properties", TypeBaseUtils.toProperties(TypeBaseUtils.toStringMap(content)));
-						}
-						
-						Map<String, String> map = route.getProperties();
-						for (Element<?> element : TypeUtils.getAllChildren(input.getType())) {
-							// the interface only has simple types, so any complex type is by definition an extension of the provider
-							if (!element.getName().equals("properties") && element.getType() instanceof ComplexType) {
-								for (String key : map.keySet()) {
-									String value = map.get(key);
-									if (value != null) {
-										if (value.startsWith("=")) {
-											try {
-												Object evaluate = getQuery(value.substring(1)).evaluate(content);
-												input.set(element.getName() + "/" + key, evaluate);
-											}
-											catch (Exception e) {
-												logger.error("Can not evaluate field " + key + " for service " + provider.getId() + " in notifier " + getId(), e);
-												continue;
-											}
-										}
-										else {
-											input.set(element.getName() + "/" + key, value);
-										}
-									}
-								}
-							}
-						}
-						
-						ServiceRuntime runtime = new ServiceRuntime(provider, getRepository().newExecutionContext(SystemPrincipal.ROOT));
 						try {
-							runtime.run(input);
+							ComplexContent content = null;
+							if (event.getProperties() != null) {
+								content = event.getProperties() instanceof ComplexContent ? (ComplexContent) event.getProperties() : ComplexContentWrapperFactory.getInstance().getWrapper().wrap(event.getProperties());
+							}
+							String type = content == null || !(content.getType() instanceof DefinedType) ? null : ((DefinedType) content.getType()).getId();
+							// check if we want a type match
+							if (route.getType() != null) {
+								if (type == null || !type.equals(route.getType())) {
+									continue;
+								}
+							}
+							if (route.getWhitelist() != null && !route.getWhitelist().trim().isEmpty()) {
+								// if we have a whitelist and no properties, continue
+								if (content == null) {
+									continue;
+								}
+								try {
+									TypeOperation query = getQuery(route.getWhitelist());
+									Object evaluate = query.evaluate(content);
+									if (evaluate == null) {
+										continue;
+									}
+									else if (!(evaluate instanceof Boolean)) {
+										evaluate = ConverterFactory.getInstance().getConverter().convert(evaluate, Boolean.class);
+										if (evaluate == null) {
+											throw new EvaluationException("The return value is not boolean");
+										}
+									}
+									// if we didn't pass the whitelist, don't execute
+									if (!(Boolean) evaluate) {
+										continue;
+									}
+								}
+								catch (ParseException e) {
+									logger.error("Could not parse whitelist for " + getId() + ": " + route.getWhitelist(), e);
+									continue;
+								}
+								catch (EvaluationException e) {
+									logger.error("Could not evaluate whitelist for " + getId() + ": " + route.getWhitelist(), e);
+									continue;
+								}
+							}
+							if (route.getBlacklist() != null && !route.getBlacklist().trim().isEmpty()) {
+								// if we have a blacklist and no properties, continue
+								if (content == null) {
+									continue;
+								}
+								try {
+									TypeOperation query = getQuery(route.getBlacklist());
+									Object evaluate = query.evaluate(content);
+									if (evaluate == null) {
+										continue;
+									}
+									else if (!(evaluate instanceof Boolean)) {
+										evaluate = ConverterFactory.getInstance().getConverter().convert(evaluate, Boolean.class);
+										if (evaluate == null) {
+											throw new EvaluationException("The return value is not boolean");
+										}
+									}
+									// if we passed the blacklist, don't execute
+									if ((Boolean) evaluate) {
+										continue;
+									}
+								}
+								catch (ParseException e) {
+									logger.error("Could not parse blacklist for " + getId() + ": " + route.getBlacklist(), e);
+									continue;
+								}
+								catch (EvaluationException e) {
+									logger.error("Could not evaluate blacklist for " + getId() + ": " + route.getBlacklist(), e);
+									continue;
+								}
+							}
+							// if we make it here, execute the service
+							DefinedService provider = route.getProvider();
+							ComplexContent input = provider.getServiceInterface().getInputDefinition().newInstance();
+							
+							input.set("context", event.getContext());
+							input.set("severity", event.getSeverity());
+							input.set("message", event.getMessage());
+							input.set("description", event.getDescription());
+							input.set("created", event.getCreated());
+							
+							// pass in the original properties, can be interesting for generic logging
+							if (content != null) {
+								input.set("properties", TypeBaseUtils.toProperties(TypeBaseUtils.toStringMap(content)));
+							}
+							
+							Map<String, String> map = route.getProperties();
+							for (Element<?> element : TypeUtils.getAllChildren(input.getType())) {
+								// the interface only has simple types, so any complex type is by definition an extension of the provider
+								if (!element.getName().equals("properties") && element.getType() instanceof ComplexType) {
+									for (String key : map.keySet()) {
+										String value = map.get(key);
+										if (value != null) {
+											if (value.startsWith("=")) {
+												try {
+													Object evaluate = getQuery(value.substring(1)).evaluate(content);
+													input.set(element.getName() + "/" + key, evaluate);
+												}
+												catch (Exception e) {
+													logger.error("Can not evaluate field " + key + " for service " + provider.getId() + " in notifier " + getId(), e);
+													continue;
+												}
+											}
+											else {
+												input.set(element.getName() + "/" + key, value);
+											}
+										}
+									}
+								}
+							}
+							ServiceRuntime runtime = new ServiceRuntime(provider, getRepository().newExecutionContext(SystemPrincipal.ROOT));
+							try {
+								runtime.run(input);
+							}
+							catch (Exception e) {
+								logger.error("Could not execute " + provider.getId() + " for notifier " + getId(), e);
+							}
+							// if we don't want to continue, stop
+							if (!route.isContinue()) {
+								break;
+							}
 						}
 						catch (Exception e) {
-							logger.error("Could not execute " + provider.getId() + " for notifier " + getId(), e);
-						}
-						// if we don't want to continue, stop
-						if (!route.isContinue()) {
-							break;
+							logger.error("Notification route malfunction", e);
 						}
 					}
 					return null;
@@ -194,7 +197,7 @@ public class NotifierArtifact extends JAXBArtifact<NotifierConfiguration> implem
 				@Override
 				public Boolean handle(Notification event) {
 					// we don't care about context, allow it
-					if (getConfig().getContext() == null) {
+					if (getConfig().getContext() == null || getConfig().getContext().equals("")) {
 						return false;
 					}
 					// if there is no context and we are expecting one, filter it

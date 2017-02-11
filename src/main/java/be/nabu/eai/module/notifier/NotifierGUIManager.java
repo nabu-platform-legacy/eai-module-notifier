@@ -14,11 +14,12 @@ import javafx.geometry.Orientation;
 import javafx.scene.control.Button;
 import javafx.scene.control.Separator;
 import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
 import be.nabu.eai.developer.ComplexContentEditor;
-import be.nabu.eai.developer.MainController;
 import be.nabu.eai.developer.ComplexContentEditor.ValueWrapper;
+import be.nabu.eai.developer.MainController;
 import be.nabu.eai.developer.MainController.PropertyUpdater;
 import be.nabu.eai.developer.managers.base.BaseConfigurationGUIManager;
 import be.nabu.eai.developer.managers.base.BaseJAXBGUIManager;
@@ -109,16 +110,17 @@ public class NotifierGUIManager extends BaseJAXBGUIManager<NotifierConfiguration
 		pane.getChildren().add(vbox);
 		
 		SimpleProperty<DefinedService> provider = new SimpleProperty<DefinedService>("provider", DefinedService.class, true);
-		BaseConfigurationGUIManager.setInterfaceFilter(provider, "be.nabu.eai.module.notifier.api.NotificationProvider.notify");
+		BaseConfigurationGUIManager.setInterfaceFilter(provider, "be.nabu.eai.repository.api.NotificationProvider.notify");
 		Set<Property<?>> properties = new LinkedHashSet<Property<?>>();
 		properties.add(provider);
 		
-		SimpleProperty<String> type = new SimpleProperty<String>("type", String.class, true);
-		SimpleProperty<String> whitelist = new SimpleProperty<String>("whitelist", String.class, true);
-		SimpleProperty<String> blacklist = new SimpleProperty<String>("blacklist", String.class, true);
+		SimpleProperty<String> type = new SimpleProperty<String>("type", String.class, false);
+		SimpleProperty<String> whitelist = new SimpleProperty<String>("whitelist", String.class, false);
+		SimpleProperty<String> blacklist = new SimpleProperty<String>("blacklist", String.class, false);
 		SimpleProperty<Boolean> isContinue = new SimpleProperty<Boolean>("continue", Boolean.class, true);
-		SimpleProperty<Severity> severity = new SimpleProperty<Severity>("severity", Severity.class, true);
+		SimpleProperty<Severity> severity = new SimpleProperty<Severity>("severity", Severity.class, false);
 		
+		properties.add(type);
 		properties.add(whitelist);
 		properties.add(blacklist);
 		properties.add(isContinue);
@@ -189,7 +191,42 @@ public class NotifierGUIManager extends BaseJAXBGUIManager<NotifierConfiguration
 				MainController.getInstance().setChanged();
 			}
 		});
-		vbox.getChildren().addAll(delete, new Separator(Orientation.HORIZONTAL));
+		Button moveUp = new Button("Move Up");
+		moveUp.addEventHandler(ActionEvent.ANY, new EventHandler<ActionEvent>() {
+			@Override
+			public void handle(ActionEvent arg0) {
+				int routeIndex = artifact.getConfig().getRoutes().indexOf(route);
+				if (routeIndex > 0) {
+					int increment = -1;
+					moveRoute(artifact, route, pane, vbox, routeIndex, increment);
+				}
+			}
+		});
+		Button moveDown = new Button("Move Down");
+		moveDown.addEventHandler(ActionEvent.ANY, new EventHandler<ActionEvent>() {
+			@Override
+			public void handle(ActionEvent arg0) {
+				int routeIndex = artifact.getConfig().getRoutes().indexOf(route);
+				if (routeIndex < artifact.getConfig().getRoutes().size() - 1) {
+					int increment = 1;
+					moveRoute(artifact, route, pane, vbox, routeIndex, increment);
+				}
+			}
+		});
+		HBox buttons = new HBox();
+		buttons.getChildren().addAll(moveUp, moveDown, delete);
+		vbox.getChildren().addAll(buttons, new Separator(Orientation.HORIZONTAL));
+	}
+	
+	private void moveRoute(NotifierArtifact artifact, NotifierRoute route, Pane pane, VBox vbox, int routeIndex, int increment) {
+		// move the route
+		artifact.getConfig().getRoutes().remove(routeIndex);
+		artifact.getConfig().getRoutes().add(routeIndex + increment, route);
+		// move the vbox
+		int vboxIndex = pane.getChildren().indexOf(vbox);
+		pane.getChildren().remove(vboxIndex);
+		pane.getChildren().add(vboxIndex + increment, vbox);
+		MainController.getInstance().setChanged();
 	}
 	
 	private void draw(NotifierArtifact artifact, DefinedService provider, Map<String, String> map, Pane pane) {
