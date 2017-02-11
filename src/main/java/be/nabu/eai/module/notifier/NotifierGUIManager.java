@@ -1,6 +1,7 @@
 package be.nabu.eai.module.notifier;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -17,22 +18,26 @@ import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
 import be.nabu.eai.developer.MainController;
 import be.nabu.eai.developer.MainController.PropertyUpdater;
+import be.nabu.eai.developer.managers.base.BaseConfigurationGUIManager;
 import be.nabu.eai.developer.managers.base.BaseJAXBGUIManager;
 import be.nabu.eai.developer.managers.util.SimpleProperty;
 import be.nabu.eai.developer.managers.util.SimplePropertyUpdater;
 import be.nabu.eai.module.notifier.api.NotificationProvider;
-import be.nabu.eai.repository.api.ArtifactManager;
+import be.nabu.eai.repository.EAIRepositoryUtils;
 import be.nabu.eai.repository.resources.RepositoryEntry;
 import be.nabu.libs.converter.ConverterFactory;
 import be.nabu.libs.property.api.Property;
 import be.nabu.libs.property.api.Value;
+import be.nabu.libs.services.api.DefinedService;
+import be.nabu.libs.types.api.Element;
 import be.nabu.libs.types.base.ValueImpl;
 import be.nabu.libs.validator.api.ValidationMessage;
+import be.nabu.libs.validator.api.ValidationMessage.Severity;
 
 public class NotifierGUIManager extends BaseJAXBGUIManager<NotifierConfiguration, NotifierArtifact> {
 
-	public NotifierGUIManager(String name, Class<NotifierArtifact> artifactClass, ArtifactManager<NotifierArtifact> artifactManager, Class<NotifierConfiguration> configurationClass) {
-		super(name, artifactClass, artifactManager, configurationClass);
+	public NotifierGUIManager() {
+		super("Notifier", NotifierArtifact.class, new NotifierManager(), NotifierConfiguration.class);
 	}
 
 	@Override
@@ -52,7 +57,6 @@ public class NotifierGUIManager extends BaseJAXBGUIManager<NotifierConfiguration
 	@Override
 	protected void display(NotifierArtifact instance, Pane pane) {
 		VBox vbox = new VBox();
-		super.display(instance, vbox);
 		pane.getChildren().add(vbox);
 		AnchorPane.setBottomAnchor(vbox, 0d);
 		AnchorPane.setTopAnchor(vbox, 0d);
@@ -66,12 +70,15 @@ public class NotifierGUIManager extends BaseJAXBGUIManager<NotifierConfiguration
 		SimplePropertyUpdater updater = new SimplePropertyUpdater(true, properties, new ValueImpl<String>(context, instance.getConfig().getContext())) {
 			@Override
 			public List<ValidationMessage> updateProperty(Property<?> property, Object value) {
-				instance.getConfig().setContext(value == null ? null : (String) value);
+				if (property.getName().equals("context")) {
+					instance.getConfig().setContext(value == null ? null : (String) value);
+				}
 				return super.updateProperty(property, value);
 			}
 		};
 		AnchorPane contextPane = new AnchorPane();
-		MainController.getInstance().showProperties(updater, contextPane, false);
+		vbox.getChildren().add(contextPane);
+		MainController.getInstance().showProperties(updater, contextPane, false, instance.getRepository(), true);
 		
 		Button add = new Button("Add Route");
 		add.addEventHandler(ActionEvent.ANY, new EventHandler<ActionEvent>() {
@@ -95,29 +102,69 @@ public class NotifierGUIManager extends BaseJAXBGUIManager<NotifierConfiguration
 		VBox vbox = new VBox();
 		pane.getChildren().add(vbox);
 		
-		Property<NotificationProvider> provider = new SimpleProperty<NotificationProvider>("provider", NotificationProvider.class, true);
+		SimpleProperty<DefinedService> provider = new SimpleProperty<DefinedService>("provider", DefinedService.class, true);
+		BaseConfigurationGUIManager.setInterfaceFilter(provider, "be.nabu.eai.module.notifier.api.NotificationProvider.notify");
 		Set<Property<?>> properties = new LinkedHashSet<Property<?>>();
 		properties.add(provider);
 		
-		AnchorPane propertiesPane = new AnchorPane();
-		vbox.getChildren().add(propertiesPane);
+		SimpleProperty<String> whitelist = new SimpleProperty<String>("whitelist", String.class, true);
+		SimpleProperty<String> blacklist = new SimpleProperty<String>("blacklist", String.class, true);
+		SimpleProperty<Boolean> isContinue = new SimpleProperty<Boolean>("continue", Boolean.class, true);
+		SimpleProperty<Severity> severity = new SimpleProperty<Severity>("severity", Severity.class, true);
 		
-		SimplePropertyUpdater simplePropertyUpdater = new SimplePropertyUpdater(true, properties, new ValueImpl<NotificationProvider>(provider, route.getProvider())) {
+		properties.add(whitelist);
+		properties.add(blacklist);
+		properties.add(isContinue);
+		properties.add(severity);
+		
+		AnchorPane propertiesPane = new AnchorPane();
+		
+		List<Value<?>> values = new ArrayList<Value<?>>();
+		values.add(new ValueImpl<DefinedService>(provider, route.getProvider()));
+		values.add(new ValueImpl<String>(whitelist, route.getWhitelist()));
+		values.add(new ValueImpl<String>(blacklist, route.getBlacklist()));
+		values.add(new ValueImpl<Boolean>(isContinue, route.isContinue()));
+		values.add(new ValueImpl<Severity>(severity, route.getSeverity()));
+		
+		SimplePropertyUpdater simplePropertyUpdater = new SimplePropertyUpdater(true, properties, values.toArray(new Value[values.size()])) {
 			@Override
 			public List<ValidationMessage> updateProperty(Property<?> property, Object value) {
-				route.setProvider((NotificationProvider) value);
-				propertiesPane.getChildren().clear();
-				if (value != null) {
-					MainController.getInstance().showProperties(updaterFor((NotificationProvider) value, route.getProperties()), propertiesPane, true);
+				if (property.getName().equals("provider")) {
+					route.setProvider((DefinedService) value);
+					propertiesPane.getChildren().clear();
+					if (value != null) {
+						PropertyUpdater updaterFor = updaterFor((DefinedService) value, route.getProperties());
+						if (updaterFor != null) {
+							MainController.getInstance().showProperties(updaterFor, propertiesPane, true, artifact.getRepository(), true);
+						}
+					}
+				}
+				else if (property.getName().equals("whitelist")) {
+					route.setWhitelist((String) value);
+				}
+				else if (property.getName().equals("blacklist")) {
+					route.setBlacklist((String) value);
+				}
+				else if (property.getName().equals("whitelist")) {
+					route.setContinue(value == null || !((Boolean) value));
+				}
+				else if (property.getName().equals("severity")) {
+					route.setSeverity((Severity) value);
 				}
 				return super.updateProperty(property, value);
 			}
 		};
 
-		MainController.getInstance().showProperties(simplePropertyUpdater, vbox, false);
+		MainController.getInstance().showProperties(simplePropertyUpdater, vbox, false, artifact.getRepository(), true);
+		
+		// the maincontroller wipes the content of the vbox...
+		vbox.getChildren().add(propertiesPane);
 
 		if (route.getProvider() != null) {
-			MainController.getInstance().showProperties(updaterFor(route.getProvider(), route.getProperties()), propertiesPane, true);
+			PropertyUpdater updaterFor = updaterFor(route.getProvider(), route.getProperties());
+			if (updaterFor != null) {
+				MainController.getInstance().showProperties(updaterFor, propertiesPane, true, artifact.getRepository(), true);
+			}
 		}
 		
 		Button delete = new Button("Remove Route");
@@ -133,23 +180,29 @@ public class NotifierGUIManager extends BaseJAXBGUIManager<NotifierConfiguration
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	private PropertyUpdater updaterFor(NotificationProvider provider, Map<String, String> map) {
-		List<Property<?>> properties = provider.getProperties();
-		synchronize(map, properties);
-		List<Value<?>> values = new ArrayList<Value<?>>();
-		for (Property<?> property : properties) {
-			String value = map.get(property.getName());
-			if (value != null) {
-				values.add(new ValueImpl(property, property.getValueClass().equals(String.class) ? value : ConverterFactory.getInstance().getConverter().convert(value, property.getValueClass())));
+	private PropertyUpdater updaterFor(DefinedService provider, Map<String, String> map) {
+		Method method = EAIRepositoryUtils.getMethod(NotificationProvider.class, "notify");
+		List<Element<?>> inputExtensions = EAIRepositoryUtils.getInputExtensions(provider, method);
+		
+		if (inputExtensions.size() > 0) {
+			List<Property<?>> properties = BaseConfigurationGUIManager.createProperty(inputExtensions.get(0));
+			synchronize(map, properties);
+			List<Value<?>> values = new ArrayList<Value<?>>();
+			for (Property<?> property : properties) {
+				String value = map.get(property.getName());
+				if (value != null) {
+					values.add(new ValueImpl(property, property.getValueClass().equals(String.class) ? value : ConverterFactory.getInstance().getConverter().convert(value, property.getValueClass())));
+				}
 			}
+			return new SimplePropertyUpdater(true, new LinkedHashSet<Property<?>>(properties), values.toArray(new Value[values.size()])) {
+				@Override
+				public List<ValidationMessage> updateProperty(Property<?> property, Object value) {
+					map.put(property.getName(), value == null ? null : ConverterFactory.getInstance().getConverter().convert(value, String.class));
+					return super.updateProperty(property, value);
+				}
+			};
 		}
-		return new SimplePropertyUpdater(true, new LinkedHashSet<Property<?>>(properties), values.toArray(new Value[values.size()])) {
-			@Override
-			public List<ValidationMessage> updateProperty(Property<?> property, Object value) {
-				map.put(property.getName(), value == null ? null : ConverterFactory.getInstance().getConverter().convert(value, String.class));
-				return super.updateProperty(property, value);
-			}
-		};
+		return null;
 	}
 	
 	private void synchronize(Map<String, String> map, List<Property<?>> properties) {

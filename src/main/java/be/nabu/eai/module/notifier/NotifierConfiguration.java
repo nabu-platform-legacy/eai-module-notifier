@@ -3,6 +3,9 @@ package be.nabu.eai.module.notifier;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.xml.bind.annotation.XmlRootElement;
+
+@XmlRootElement(name = "notifier")
 public class NotifierConfiguration {
 	
 	private String context;
