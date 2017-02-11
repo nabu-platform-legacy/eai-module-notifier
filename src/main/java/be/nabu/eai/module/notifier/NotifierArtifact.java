@@ -29,6 +29,7 @@ import be.nabu.libs.types.ComplexContentWrapperFactory;
 import be.nabu.libs.types.TypeUtils;
 import be.nabu.libs.types.api.ComplexContent;
 import be.nabu.libs.types.api.ComplexType;
+import be.nabu.libs.types.api.DefinedType;
 import be.nabu.libs.types.api.Element;
 import be.nabu.libs.types.base.TypeBaseUtils;
 
@@ -65,9 +66,10 @@ public class NotifierArtifact extends JAXBArtifact<NotifierConfiguration> implem
 						if (event.getProperties() != null) {
 							content = event.getProperties() instanceof ComplexContent ? (ComplexContent) event.getProperties() : ComplexContentWrapperFactory.getInstance().getWrapper().wrap(event.getProperties());
 						}
+						String type = content == null || !(content.getType() instanceof DefinedType) ? null : ((DefinedType) content.getType()).getId();
 						// check if we want a type match
 						if (route.getType() != null) {
-							if (event.getType() == null || !event.getType().equals(route.getType())) {
+							if (type == null || !type.equals(route.getType())) {
 								continue;
 							}
 						}
@@ -141,6 +143,7 @@ public class NotifierArtifact extends JAXBArtifact<NotifierConfiguration> implem
 						input.set("severity", event.getSeverity());
 						input.set("message", event.getMessage());
 						input.set("description", event.getDescription());
+						input.set("created", event.getCreated());
 						
 						// pass in the original properties, can be interesting for generic logging
 						if (content != null) {
