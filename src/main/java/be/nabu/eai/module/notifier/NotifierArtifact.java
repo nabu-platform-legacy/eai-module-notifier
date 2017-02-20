@@ -32,6 +32,7 @@ import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.api.DefinedType;
 import be.nabu.libs.types.api.Element;
 import be.nabu.libs.types.base.TypeBaseUtils;
+import be.nabu.libs.validator.api.ValidationMessage.Severity;
 
 public class NotifierArtifact extends JAXBArtifact<NotifierConfiguration> implements StartableArtifact, StoppableArtifact {
 
@@ -66,10 +67,13 @@ public class NotifierArtifact extends JAXBArtifact<NotifierConfiguration> implem
 							if (event.getProperties() != null) {
 								content = event.getProperties() instanceof ComplexContent ? (ComplexContent) event.getProperties() : ComplexContentWrapperFactory.getInstance().getWrapper().wrap(event.getProperties());
 							}
-							String type = content == null || !(content.getType() instanceof DefinedType) ? null : ((DefinedType) content.getType()).getId();
+							String type = event.getType();
+							if (type == null) {
+								type = content == null || !(content.getType() instanceof DefinedType) ? null : ((DefinedType) content.getType()).getId();
+							}
 							// check if we want a type match
 							if (route.getType() != null) {
-								if (type == null || !type.equals(route.getType())) {
+								if (type == null || (!type.equals(route.getType()) && !type.startsWith(route.getType() + "."))) {
 									continue;
 								}
 							}
@@ -140,10 +144,12 @@ public class NotifierArtifact extends JAXBArtifact<NotifierConfiguration> implem
 							ComplexContent input = provider.getServiceInterface().getInputDefinition().newInstance();
 							
 							input.set("context", event.getContext());
-							input.set("severity", event.getSeverity());
+							input.set("severity", event.getSeverity() == null ? Severity.INFO : event.getSeverity());
 							input.set("message", event.getMessage());
 							input.set("description", event.getDescription());
 							input.set("created", event.getCreated());
+							input.set("code", event.getCode());
+							input.set("type", type);
 							
 							// pass in the original properties, can be interesting for generic logging
 							if (content != null) {
