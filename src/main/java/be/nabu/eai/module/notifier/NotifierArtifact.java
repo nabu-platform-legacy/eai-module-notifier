@@ -187,13 +187,13 @@ public class NotifierArtifact extends JAXBArtifact<NotifierConfiguration> implem
 							catch (Exception e) {
 								logger.error("Could not execute " + provider.getId() + " for notifier " + getId(), e);
 							}
-							// if we don't want to continue, stop
-							if (!route.isContinue()) {
-								break;
-							}
 						}
 						catch (Exception e) {
 							logger.error("Notification route malfunction", e);
+						}
+						// if we don't want to continue, stop
+						if (!route.isContinue()) {
+							break;
 						}
 					}
 					return null;

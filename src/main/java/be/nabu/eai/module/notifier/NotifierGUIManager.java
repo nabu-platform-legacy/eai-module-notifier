@@ -165,6 +165,9 @@ public class NotifierGUIManager extends BaseJAXBGUIManager<NotifierConfiguration
 				else if (property.getName().equals("type")) {
 					route.setType((String) value);
 				}
+				else if (property.getName().equals("continue")) {
+					route.setContinue((Boolean) value);
+				}
 				return super.updateProperty(property, value);
 			}
 		};
