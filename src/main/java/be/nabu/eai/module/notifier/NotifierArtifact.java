@@ -150,6 +150,8 @@ public class NotifierArtifact extends JAXBArtifact<NotifierConfiguration> implem
 							input.set("created", event.getCreated());
 							input.set("code", event.getCode());
 							input.set("type", type);
+							input.set("alias", event.getAlias());
+							input.set("realm", event.getRealm());
 							
 							// pass in the original properties, can be interesting for generic logging
 							if (content != null) {
@@ -204,6 +206,10 @@ public class NotifierArtifact extends JAXBArtifact<NotifierConfiguration> implem
 				public Boolean handle(Notification event) {
 					// we don't care about context, allow it
 					if (getConfig().getContext() == null || getConfig().getContext().equals("")) {
+						return false;
+					}
+					// if the service context matches, we are interested
+					else if (event.getServiceContext() != null && (event.getServiceContext().equals(getConfig().getContext()) || event.getServiceContext().startsWith(getConfig().getContext() + "."))) {
 						return false;
 					}
 					// if there is no context and we are expecting one, filter it
