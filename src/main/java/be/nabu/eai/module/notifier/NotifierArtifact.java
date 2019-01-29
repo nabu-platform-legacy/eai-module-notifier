@@ -143,6 +143,7 @@ public class NotifierArtifact extends JAXBArtifact<NotifierConfiguration> implem
 							DefinedService provider = route.getProvider();
 							ComplexContent input = provider.getServiceInterface().getInputDefinition().newInstance();
 							
+							input.set("identifier", event.getIdentifier());
 							input.set("context", event.getContext());
 							input.set("severity", event.getSeverity() == null ? Severity.INFO : event.getSeverity());
 							input.set("message", event.getMessage());
@@ -152,6 +153,7 @@ public class NotifierArtifact extends JAXBArtifact<NotifierConfiguration> implem
 							input.set("type", type);
 							input.set("alias", event.getAlias());
 							input.set("realm", event.getRealm());
+							input.set("deviceId", event.getDeviceId());
 							
 							// pass in the original properties, can be interesting for generic logging
 							if (content != null) {
