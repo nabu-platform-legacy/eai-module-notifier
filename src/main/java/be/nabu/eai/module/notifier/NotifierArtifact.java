@@ -63,6 +63,15 @@ public class NotifierArtifact extends JAXBArtifact<NotifierConfiguration> implem
 				public Void handle(Notification event) {
 					for (NotifierRoute route : getConfig().getRoutes()) {
 						try {
+							// check that we are interested in the level
+							if (route.getSeverity() != null) {
+								if (event.getSeverity() == null) {
+									continue;
+								}
+								else if (event.getSeverity().ordinal() < route.getSeverity().ordinal()) {
+									continue;
+								}
+							}
 							ComplexContent content = null;
 							if (event.getProperties() != null) {
 								content = event.getProperties() instanceof ComplexContent ? (ComplexContent) event.getProperties() : ComplexContentWrapperFactory.getInstance().getWrapper().wrap(event.getProperties());
