@@ -25,6 +25,7 @@ import be.nabu.libs.events.api.EventSubscription;
 import be.nabu.libs.resources.api.ResourceContainer;
 import be.nabu.libs.services.ServiceRuntime;
 import be.nabu.libs.services.api.DefinedService;
+import be.nabu.libs.services.api.ExecutionContext;
 import be.nabu.libs.types.ComplexContentWrapperFactory;
 import be.nabu.libs.types.TypeUtils;
 import be.nabu.libs.types.api.ComplexContent;
@@ -41,6 +42,12 @@ public class NotifierArtifact extends JAXBArtifact<NotifierConfiguration> implem
 	private Map<String, TypeOperation> queries = new HashMap<String, TypeOperation>();
 	
 	private Logger logger = LoggerFactory.getLogger(getClass());
+	
+	// originally this was false, broke backwards compatibility because it was very rarely used
+	private boolean inheritExecutionContext = true;
+	
+	// originally this was true, broke backwards compatibility because it was very rarely used and introduced unnecessary (sometimes two-ways) overhead
+	private boolean propertiesAsKeyValuePair = false;
 	
 	public NotifierArtifact(String id, ResourceContainer<?> directory, Repository repository) {
 		super(id, directory, repository, "notifier.xml", NotifierConfiguration.class);
@@ -166,7 +173,7 @@ public class NotifierArtifact extends JAXBArtifact<NotifierConfiguration> implem
 							
 							// pass in the original properties, can be interesting for generic logging
 							if (content != null) {
-								input.set("properties", TypeBaseUtils.toProperties(TypeBaseUtils.toStringMap(content)));
+								input.set("properties", propertiesAsKeyValuePair ? TypeBaseUtils.toProperties(TypeBaseUtils.toStringMap(content)) : event.getProperties());
 							}
 							
 							Map<String, String> map = route.getProperties();
@@ -193,7 +200,21 @@ public class NotifierArtifact extends JAXBArtifact<NotifierConfiguration> implem
 									}
 								}
 							}
-							ServiceRuntime runtime = new ServiceRuntime(provider, getRepository().newExecutionContext(SystemPrincipal.ROOT));
+							ExecutionContext newExecutionContext = null;
+							// if we start a new execution context, transactions are scoped to that context
+							// in some cases however we want to inherit global transaction management
+							// because you can always do custom transactions but not force global ones, we default to inheriting the scope
+							// this actually breaks with the past but almost no one is using this atm
+							if (inheritExecutionContext) {
+								ServiceRuntime runtime = ServiceRuntime.getRuntime();
+								if (runtime != null) {
+									newExecutionContext = runtime.getExecutionContext();
+								}
+							}
+							if (newExecutionContext == null) {
+								newExecutionContext = getRepository().newExecutionContext(SystemPrincipal.ROOT);
+							}
+							ServiceRuntime runtime = new ServiceRuntime(provider, newExecutionContext);
 							try {
 								runtime.run(input);
 							}
